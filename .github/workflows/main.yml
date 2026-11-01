@@ -1,0 +1,47 @@
+# Builds the Windows VST3 (and Standalone) in the cloud on every push.
+# Download the result from the run's "Artifacts" section (Actions tab).
+# Works with whichever Visual Studio version the runner has (2022 or newer): the MSVC environment is
+# loaded first and the build uses Ninja, so no Visual Studio version is hard-coded.
+name: Build Windows VST3
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load the MSVC x64 build environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Make sure Ninja is available
+        shell: cmd
+        run: where ninja || python -m pip install ninja
+
+      - name: Show tool versions
+        shell: cmd
+        run: |
+          cl 2>&1 | findstr /C:"Version"
+          cmake --version
+          ninja --version
+
+      - name: Configure
+        shell: cmd
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        shell: cmd
+        run: cmake --build build --target AmpDualRect_VST3 AmpDualRect_Standalone --parallel
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AmpDualRect-Windows-VST3
+          path: |
+            build/AmpDualRect_artefacts/Release/VST3
+            build/AmpDualRect_artefacts/Release/Standalone
+          if-no-files-found: error
